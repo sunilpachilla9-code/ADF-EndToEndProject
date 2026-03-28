@@ -1,0 +1,7 @@
+{
+	"name": "sunil-SHIR",
+	"properties": {
+		"type": "SelfHosted",
+		"description": "Have to copy the data from on prem to azure"
+	}
+}

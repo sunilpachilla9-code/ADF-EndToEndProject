@@ -1,0 +1,21 @@
+{
+	"name": "dimairport",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_target_from_onprem",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "DimAirport.json",
+				"folderPath": "fromgithub",
+				"fileSystem": "raw-data"
+			}
+		},
+		"schema": {}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

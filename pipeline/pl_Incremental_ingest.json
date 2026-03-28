@@ -1,0 +1,232 @@
+{
+	"name": "pl_Incremental_ingest",
+	"properties": {
+		"activities": [
+			{
+				"name": "Incremental_sql_Cloud",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "lastload",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "latestload",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "select * from dbo.factBookings where booking_date > '@{activity('lastload').output.firstRow.lastload}'\n\nAND \nbooking_date <='@{activity('latestload').output.firstRow.latestload}'",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_source_sqlncr",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_target_fromsql_gen2",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "lastload",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "ds_lastload",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "latestload",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "select max(booking_date) as latestload from dbo.factBookings;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_source_sqlncr",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "watermark",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Incremental_sql_Cloud",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"additionalColumns": [
+							{
+								"name": "lastload",
+								"value": {
+									"value": "@coalesce(activity('latestload').output.firstRow.latestload, '1900-01-01')",
+									"type": "Expression"
+								}
+							}
+						],
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"sink": {
+						"type": "JsonSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "JsonWriteSettings"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_emptyjson",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_lastload",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "failurreactivity",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Incremental_sql_Cloud",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": "https://logicadfpractice-b6bda0dje4hkh3gs.canadacentral-01.azurewebsites.net:443/api/alerts/triggers/When_an_HTTP_request_is_received/invoke?api-version=2022-05-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=Jly9NuHL1x2WgwVEiburFdFHm-lwu6BKCi9qsTsDSCE",
+					"body": {
+						"value": "{\n     \"pipeline\" : \"@{pipeline().Pipeline}',\n     \"run_id\"   :  \"@{pipeline().RunId}\",\n     \"status\"   :   \"\"\n\n }",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"variables": {
+			"lastload": {
+				"type": "String"
+			},
+			"v_now": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-03-28T13:22:59Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

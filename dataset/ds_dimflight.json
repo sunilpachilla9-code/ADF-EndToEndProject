@@ -1,0 +1,25 @@
+{
+	"name": "ds_dimflight",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_target_from_onprem",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "DimFlight.csv",
+				"folderPath": "bronze",
+				"fileSystem": "raw-data"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

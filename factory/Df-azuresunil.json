@@ -1,0 +1,9 @@
+{
+	"name": "Df-azuresunil",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "758ad899-0dc9-45f4-9dbe-4ccfbd760b89",
+		"tenantId": "79188f94-7b4d-4d2b-b975-efa79254fad3"
+	}
+}
